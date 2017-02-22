@@ -5,6 +5,24 @@ import (
 	"net/http"
 )
 
+type Route struct {
+	Name        string
+	Method      string
+	Pattern     string
+	HandlerFunc appHandler
+}
+
+type Routes []Route
+
+var routes = Routes{
+	Route{
+		"Index",
+		"GET",
+		"/",
+		appHandler{context, Index},
+	},
+}
+
 func NewRouter() *mux.Router {
 
 	router := mux.NewRouter().StrictSlash(true)
