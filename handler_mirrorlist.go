@@ -12,7 +12,7 @@ type MirrorListResponse struct {
 	MirrorList []mirror.Mirror
 }
 
-func Index(conn redis.Conn, w http.ResponseWriter, r *http.Request) {
+func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 	// _, err := conn.Do("PING")
 	// if err != nil {
 	//         panic(err)
@@ -27,6 +27,11 @@ func Index(conn redis.Conn, w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v\n", mirrorIDs)
 
 	mirrors := make([]mirror.Mirror, 0, len(mirrorIDs))
+	for _, id := range mirrorIDs {
+		mirror := mirror.Mirror{ID: id}
+		mirrors = append(mirrors, mirror)
+	}
+
 	m := MirrorListResponse{Status: Status{State: OkStatus}, MirrorList: mirrors}
-	jsonResponse(w, http.StatusOK, m)
+	return http.StatusOK, err, m
 }

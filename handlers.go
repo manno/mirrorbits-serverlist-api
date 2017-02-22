@@ -14,14 +14,26 @@ type Status struct {
 
 type appHandler struct {
 	*appContext
-	H func(redis.Conn, http.ResponseWriter, *http.Request)
+	H func(redis.Conn, *http.Request) (int, error, interface{})
 }
 
 func (ah appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn := ah.appContext.redisPool.Get()
 	defer conn.Close()
 
-	ah.H(conn, w, r)
+	status, err, obj := ah.H(conn, r)
+	if err != nil {
+		switch status {
+		case http.StatusNotFound:
+			jsonResponse(w, status, Status{State: "not found"})
+		case http.StatusInternalServerError:
+			jsonResponse(w, status, Status{State: "internal error"})
+		default:
+			jsonResponse(w, status, Status{State: http.StatusText(status)})
+		}
+		return
+	}
+	jsonResponse(w, status, obj)
 }
 
 func jsonResponse(w http.ResponseWriter, code int, obj interface{}) {

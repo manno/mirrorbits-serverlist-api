@@ -14,16 +14,15 @@ type Route struct {
 
 type Routes []Route
 
-var routes = Routes{
-	Route{
-		"Index",
-		"GET",
-		"/",
-		appHandler{context, Index},
-	},
-}
-
-func NewRouter() *mux.Router {
+func NewRouter(context *appContext) *mux.Router {
+	var routes = Routes{
+		Route{
+			"Index",
+			"GET",
+			"/",
+			appHandler{context, Index},
+		},
+	}
 
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range routes {
