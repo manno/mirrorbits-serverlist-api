@@ -13,16 +13,9 @@ type MirrorListResponse struct {
 }
 
 func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
-	// _, err := conn.Do("PING")
-	// if err != nil {
-	//         panic(err)
-	// }
-	// exists, err := redis.Bool(conn.Do("EXISTS", "foo"))
-	// log.Printf("%s", exists)
-
 	mirrorIDs, err := redis.Strings(conn.Do("LRANGE", "MIRRORS", "0", "-1"))
 	if err != nil {
-		panic(err)
+		return http.StatusInternalServerError, err, nil
 	}
 	fmt.Printf("%v\n", mirrorIDs)
 
