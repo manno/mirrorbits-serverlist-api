@@ -15,7 +15,7 @@ var context = &appContext{redisPool: NewPool(":6379")}
 
 func main() {
 	router := NewRouter(context)
-	port := ":" + os.Getenv("API_PORT")
-	log.Printf("Listening on API_PORT from env: %s", port)
-	log.Fatal(http.ListenAndServe(port, router))
+	url := os.Getenv("API_URL")
+	log.Printf("Listening on API_URL from env: %s", url)
+	log.Fatal(http.ListenAndServe(url, router))
 }
