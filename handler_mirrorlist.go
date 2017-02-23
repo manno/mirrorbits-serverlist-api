@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -27,6 +28,22 @@ type Mirror struct {
 type MirrorListResponse struct {
 	Status     Status
 	MirrorList []Mirror
+}
+
+type MirrorsSlice []Mirror
+
+func (s MirrorsSlice) Len() int      { return len(s) }
+func (s MirrorsSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+type ByDownloadNumbers struct {
+	MirrorsSlice
+}
+
+func (b ByDownloadNumbers) Less(i, j int) bool {
+	if b.MirrorsSlice[i].MonthDownloads > b.MirrorsSlice[j].MonthDownloads {
+		return true
+	}
+	return false
 }
 
 func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
@@ -74,6 +91,7 @@ func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 		mirrors = append(mirrors, mirror)
 	}
 
+	sort.Sort(ByDownloadNumbers{mirrors})
 	m := MirrorListResponse{Status: Status{State: OkStatus}, MirrorList: mirrors}
 	return http.StatusOK, err, m
 }
