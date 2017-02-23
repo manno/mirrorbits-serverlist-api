@@ -1,12 +1,13 @@
-// handlers_test.go
 package main
 
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
+// FIXME needs connection to redis with test data
 func TestIndex(t *testing.T) {
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -15,7 +16,7 @@ func TestIndex(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(Index)
+	handler := appHandler{context, Index}
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -28,15 +29,9 @@ func TestIndex(t *testing.T) {
 	}
 
 	// Check the response body is what we expect.
-	expected := `{"alive": true}`
-	if rr.Body.String() != expected {
+	expected := `Status":{"status":"ok"},"MirrorList":[{"ID":"berlin"`
+	if !strings.Contains(rr.Body.String(), expected) {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected)
 	}
-	// {
-	//   "MirrorList": [
-	//     { "FileCount": 123 },
-	//     {}
-	//   ]
-	// }
 }

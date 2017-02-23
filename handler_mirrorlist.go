@@ -3,13 +3,30 @@ package main
 import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"github.com/manno/mirrorbits-api/mirror"
 	"net/http"
+	"time"
 )
+
+type Mirror struct {
+	ID             string
+	HttpURL        string  `redis:"http"`
+	Latitude       float32 `redis:"latitude"`
+	Longitude      float32 `redis:"longitude"`
+	ContinentCode  string  `redis:"continentCode"`
+	CountryCodes   string  `redis:"countryCodes"`
+	LastSync       int64   `redis:"lastSync"`
+	Asnum          int     `redis:"asnum"`
+	SponsorURL     string  `redis:"sponsorURL"`
+	SponsorLogoURL string  `redis:"sponsorLogo"`
+	SponsorName    string  `redis:"sponsorName"`
+	FileCount      int64
+	MonthDownloads int64
+	MonthBytes     int64
+}
 
 type MirrorListResponse struct {
 	Status     Status
-	MirrorList []mirror.Mirror
+	MirrorList []Mirror
 }
 
 func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
@@ -17,11 +34,43 @@ func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 	if err != nil {
 		return http.StatusInternalServerError, err, nil
 	}
-	fmt.Printf("%v\n", mirrorIDs)
 
-	mirrors := make([]mirror.Mirror, 0, len(mirrorIDs))
+	conn.Send("MULTI")
 	for _, id := range mirrorIDs {
-		mirror := mirror.Mirror{ID: id}
+		month := time.Now().Format("2006_01")
+		conn.Send("HGET", "STATS_MIRROR_"+month, id)
+		conn.Send("HGET", "STATS_MIRROR_BYTES_"+month, id)
+	}
+	stats, err := redis.Values(conn.Do("EXEC"))
+
+	if err != nil {
+		return http.StatusInternalServerError, err, nil
+	}
+
+	mirrors := make([]Mirror, 0, len(mirrorIDs))
+	index := 0
+	for _, id := range mirrorIDs {
+		downloads, _ := redis.Int64(stats[index], nil)
+		bytes, _ := redis.Int64(stats[index+1], nil)
+		index += 2
+
+		count, _ := redis.Int64(conn.Do("SCARD", fmt.Sprintf("MIRROR_%s_FILES", id)))
+
+		mirror := Mirror{ID: id, MonthDownloads: downloads, MonthBytes: bytes, FileCount: count}
+
+		reply, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", id)))
+		if err != nil {
+			continue
+		}
+		if len(reply) == 0 {
+			err = redis.ErrNil
+			continue
+		}
+		err = redis.ScanStruct(reply, &mirror)
+		if err != nil {
+			continue
+		}
+
 		mirrors = append(mirrors, mirror)
 	}
 
