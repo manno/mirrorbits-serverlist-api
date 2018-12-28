@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 type Mirror struct {
@@ -20,6 +21,8 @@ type Mirror struct {
 	SponsorURL     string  `redis:"sponsorURL"`
 	SponsorLogoURL string  `redis:"sponsorLogo"`
 	SponsorName    string  `redis:"sponsorName"`
+	Up             int     `redis:"up"`
+	Enabled        bool    `redis:"enabled"`
 	FileCount      int64
 	MonthDownloads int64
 	MonthBytes     int64
@@ -85,6 +88,9 @@ func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 		}
 		err = redis.ScanStruct(reply, &mirror)
 		if err != nil {
+			continue
+		}
+		if !mirror.Enabled {
 			continue
 		}
 
