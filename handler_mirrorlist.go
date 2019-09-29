@@ -50,7 +50,7 @@ func (b ByDownloadNumbers) Less(i, j int) bool {
 }
 
 func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
-	mirrorIDs, err := redis.Strings(conn.Do("LRANGE", "MIRRORS", "0", "-1"))
+	mirrorIDs, err := redis.Strings(conn.Do("HKEYS", "MIRRORS"))
 	if err != nil {
 		return http.StatusInternalServerError, err, nil
 	}
@@ -74,7 +74,7 @@ func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 		bytes, _ := redis.Int64(stats[index+1], nil)
 		index += 2
 
-		count, _ := redis.Int64(conn.Do("SCARD", fmt.Sprintf("MIRROR_%s_FILES", id)))
+		count, _ := redis.Int64(conn.Do("SCARD", fmt.Sprintf("MIRRORFILES_%s", id)))
 
 		mirror := Mirror{ID: id, MonthDownloads: downloads, MonthBytes: bytes, FileCount: count}
 
