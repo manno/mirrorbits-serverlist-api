@@ -11,6 +11,7 @@ import (
 
 type Mirror struct {
 	ID             string
+	Name           string
 	HttpURL        string  `redis:"http"`
 	Latitude       float32 `redis:"latitude"`
 	Longitude      float32 `redis:"longitude"`
@@ -50,16 +51,21 @@ func (b ByDownloadNumbers) Less(i, j int) bool {
 }
 
 func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
-	mirrorIDs, err := redis.Strings(conn.Do("HKEYS", "MIRRORS"))
+	mlist, err := redis.Strings(conn.Do("HGETALL", "MIRRORS"))
 	if err != nil {
 		return http.StatusInternalServerError, err, nil
 	}
 
+	mirrors := make([]Mirror, 0, len(mlist)/2)
+	for i := 0; i < len(mlist)-1; i = i + 2 {
+		mirrors = append(mirrors, Mirror{ID: mlist[i], Name: mlist[i+1]})
+	}
+
 	conn.Send("MULTI")
-	for _, id := range mirrorIDs {
+	for _, m := range mirrors {
 		month := time.Now().Format("2006_01")
-		conn.Send("HGET", "STATS_MIRROR_"+month, id)
-		conn.Send("HGET", "STATS_MIRROR_BYTES_"+month, id)
+		conn.Send("HGET", "STATS_MIRROR_"+month, m.ID)
+		conn.Send("HGET", "STATS_MIRROR_BYTES_"+month, m.ID)
 	}
 	stats, err := redis.Values(conn.Do("EXEC"))
 
@@ -67,18 +73,20 @@ func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 		return http.StatusInternalServerError, err, nil
 	}
 
-	mirrors := make([]Mirror, 0, len(mirrorIDs))
+	enabled := make([]Mirror, 0, len(mlist)/2)
 	index := 0
-	for _, id := range mirrorIDs {
+	for _, mirror := range mirrors {
 		downloads, _ := redis.Int64(stats[index], nil)
 		bytes, _ := redis.Int64(stats[index+1], nil)
 		index += 2
 
-		count, _ := redis.Int64(conn.Do("SCARD", fmt.Sprintf("MIRRORFILES_%s", id)))
+		count, _ := redis.Int64(conn.Do("SCARD", fmt.Sprintf("MIRRORFILES_%s", mirror.ID)))
 
-		mirror := Mirror{ID: id, MonthDownloads: downloads, MonthBytes: bytes, FileCount: count}
+		mirror.MonthDownloads = downloads
+		mirror.MonthBytes = bytes
+		mirror.FileCount = count
 
-		reply, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", id)))
+		reply, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", mirror.ID)))
 		if err != nil {
 			continue
 		}
@@ -94,10 +102,11 @@ func Index(conn redis.Conn, r *http.Request) (int, error, interface{}) {
 			continue
 		}
 
-		mirrors = append(mirrors, mirror)
+		mirror.ID = mirror.Name
+		enabled = append(enabled, mirror)
 	}
 
 	sort.Sort(ByDownloadNumbers{mirrors})
-	m := MirrorListResponse{Status: Status{State: OkStatus}, MirrorList: mirrors}
+	m := MirrorListResponse{Status: Status{State: OkStatus}, MirrorList: enabled}
 	return http.StatusOK, err, m
 }
