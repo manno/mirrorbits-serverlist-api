@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 
@@ -19,7 +20,11 @@ func main() {
 
 	router := NewRouter(context)
 	url := os.Getenv("API_URL")
-	slog.Info("starting server", "addr", url)
+	if url == "" {
+		url = ":8080"
+	}
+	_, port, _ := net.SplitHostPort(url)
+	slog.Info("starting server", "addr", url, "port", port)
 	if err := http.ListenAndServe(url, router); err != nil {
 		slog.Error("server failed", "err", err)
 		os.Exit(1)
