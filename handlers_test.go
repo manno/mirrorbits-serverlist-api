@@ -5,31 +5,41 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/alicebob/miniredis/v2"
 )
 
-// FIXME needs connection to redis with test data
 func TestIndex(t *testing.T) {
+	mr := miniredis.RunT(t)
+
+	// MIRRORS hash: mirror_id -> mirror_name
+	mr.HSet("MIRRORS", "berlin", "Berlin")
+
+	// Mirror details
+	mr.HSet("MIRROR_berlin",
+		"http", "https://mirror.example.com/",
+		"enabled", "1",
+		"continentCode", "EU",
+		"countryCodes", "de",
+	)
+
+	ctx := &appContext{redisPool: NewPool(mr.Addr())}
+
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := appHandler{context, Index}
-
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
+	handler := appHandler{ctx, Index}
 	handler.ServeHTTP(rr, req)
 
-	// Check the status code is what we expect.
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
 
-	// Check the response body is what we expect.
-	expected := `Status":{"status":"ok"},"MirrorList":[{"ID":"berlin"`
+	expected := `"Status":{"status":"ok"},"MirrorList":[{"ID":"Berlin"`
 	if !strings.Contains(rr.Body.String(), expected) {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected)

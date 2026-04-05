@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/garyburd/redigo/redis"
-	"log"
+	"log/slog"
+	"net"
 	"net/http"
 	"os"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 type appContext struct {
@@ -14,8 +16,17 @@ type appContext struct {
 var context = &appContext{redisPool: NewPool(":6379")}
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	router := NewRouter(context)
 	url := os.Getenv("API_URL")
-	log.Printf("Listening on API_URL from env: %s", url)
-	log.Fatal(http.ListenAndServe(url, router))
+	if url == "" {
+		url = ":8080"
+	}
+	_, port, _ := net.SplitHostPort(url)
+	slog.Info("starting server", "addr", url, "port", port)
+	if err := http.ListenAndServe(url, router); err != nil {
+		slog.Error("server failed", "err", err)
+		os.Exit(1)
+	}
 }

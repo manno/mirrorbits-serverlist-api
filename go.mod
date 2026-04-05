@@ -1,8 +1,10 @@
 module github.com/manno/mirrorbits-serverlist-api
 
 require (
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/garyburd/redigo v1.6.0
-	github.com/gorilla/mux v1.6.2
 )
 
-go 1.13
+require github.com/yuin/gopher-lua v1.1.1 // indirect
+
+go 1.22
